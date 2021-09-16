@@ -1,6 +1,14 @@
 {
   "name": "releases",
-  "version": "0.0.0",
+  "version": "0.0.6",
+  "description": "Track Github Release downloads statistics.",
+	"keywords": [
+		"github",
+		"releases",
+		"downloads",
+		"count",
+    "CourtStack"
+	],
   "scripts": {
     "ng": "ng",
     "start": "ng serve",

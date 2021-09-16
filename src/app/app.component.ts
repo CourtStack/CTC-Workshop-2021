@@ -1,32 +1,181 @@
 import { Component } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
 
 @Component({
   selector: 'app-root',
-  template: `
-    <!--The content below is only a placeholder and can be replaced.-->
-    <div style="text-align:center" class="content">
-      <h1>
-        Welcome to {{title}}!
-      </h1>
-      <span style="display: block">{{ title }} app is running!</span>
-      <img width="300" alt="Angular Logo" src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNTAgMjUwIj4KICAgIDxwYXRoIGZpbGw9IiNERDAwMzEiIGQ9Ik0xMjUgMzBMMzEuOSA2My4ybDE0LjIgMTIzLjFMMTI1IDIzMGw3OC45LTQzLjcgMTQuMi0xMjMuMXoiIC8+CiAgICA8cGF0aCBmaWxsPSIjQzMwMDJGIiBkPSJNMTI1IDMwdjIyLjItLjFWMjMwbDc4LjktNDMuNyAxNC4yLTEyMy4xTDEyNSAzMHoiIC8+CiAgICA8cGF0aCAgZmlsbD0iI0ZGRkZGRiIgZD0iTTEyNSA1Mi4xTDY2LjggMTgyLjZoMjEuN2wxMS43LTI5LjJoNDkuNGwxMS43IDI5LjJIMTgzTDEyNSA1Mi4xem0xNyA4My4zaC0zNGwxNy00MC45IDE3IDQwLjl6IiAvPgogIDwvc3ZnPg==">
-    </div>
-    <h2>Here are some links to help you start: </h2>
-    <ul>
-      <li>
-        <h2><a target="_blank" rel="noopener" href="https://angular.io/tutorial">Tour of Heroes</a></h2>
-      </li>
-      <li>
-        <h2><a target="_blank" rel="noopener" href="https://angular.io/cli">CLI Documentation</a></h2>
-      </li>
-      <li>
-        <h2><a target="_blank" rel="noopener" href="https://blog.angular.io/">Angular blog</a></h2>
-      </li>
-    </ul>
-    
-  `,
-  styles: []
+  templateUrl: './app.component.html',
+  styleUrls: ['./app.component.css']
 })
 export class AppComponent {
-  title = 'releases';
+  title: string = "View GitHub release statistics.";
+
+	cachedRepos:any[] = [];
+
+	jsonData:any[] = [];
+
+	nameLength: number = 34;
+
+	latestAssets:any[] = [];
+	totalLatestUsers: number = 0;
+
+	releases:any[] = [];
+	totalDownloads: number = 0;
+
+	bannerHover: boolean = false;
+	blink: boolean = true;
+	blinker: string = "";
+
+	showStats: boolean = false;
+	showRepos: boolean = true;
+	showError: boolean = false;
+	errorMsg: string = "";
+
+	constructor(private http: HttpClient) {
+		// localStorage.clear();
+		this.loadRepos();
+	}
+
+	ngOnInit() {
+    this.search();
+	}
+
+	search(): void {
+		this.showError = false;
+		this.showStats = false;
+		this.wipe();
+
+		const url =
+			window.location.protocol +
+			"//" +
+			window.location.host +
+			window.location.pathname;
+
+		this.bannerHover = true;
+		this.showRepos = false;
+
+		this.getStats();
+	}
+
+	async getStats(): Promise<void> {
+    let id:string = "courtstack";
+    let repo:string = "ctc-workshop-2021";
+
+    let apiURL = `https://api.github.com/repos/${id}/${repo}/releases?page=1&per_page=100`;
+    console.log(apiURL);
+
+    await this.http.get(apiURL)
+      .subscribe((data: any) => {
+        this.jsonData = data;
+        if (data.message === "Not Found") {
+          this.errorReset("Invalid repository");
+          return;
+        } else if (data.length === 0) {
+          this.errorReset("This repository does not have any releases");
+          return;
+        }
+        this.getLatestUsers();
+        this.getTotalDownloads();
+        this.showStats = true;
+    
+        this.cacheRepo({ id: id, name: repo });
+        this.loadRepos();
+      });
+	}
+
+	getLatestUsers(): void {
+		this.latestAssets = this.jsonData[0].assets;
+		for (let i = 0; i < this.latestAssets.length; i++) {
+			this.totalLatestUsers += this.latestAssets[i].download_count;
+		}
+	}
+
+	getTotalDownloads(): void {
+		for (let i = 0; i < this.jsonData.length; i++) {
+			let assets = this.jsonData[i].assets;
+			let name: string = this.jsonData[i].name || this.jsonData[i].tag_name;
+			var downloads: number = 0;
+			for (let x = 0; x < assets.length; x++) {
+				downloads += assets[x].download_count;
+			}
+			this.totalDownloads += downloads;
+			if (name.length > this.nameLength)
+				name = name.slice(0, this.nameLength) + "...";
+			this.releases.push({ name: name, downloads: downloads, tag: this.jsonData[i].tag_name });
+		}
+	}
+
+	sleep(ms:number) {
+		return new Promise((resolve) => setTimeout(resolve, ms));
+	}
+
+	wipe() {
+		this.jsonData = [];
+
+		this.latestAssets = [];
+		this.totalLatestUsers = 0;
+
+		this.releases = [];
+		this.totalDownloads = 0;
+	}
+
+	errorReset(error: string) {
+		this.errorMsg = error;
+		this.showError = true;
+		this.showRepos = true;
+		this.bannerHover = false;
+	}
+
+	cacheRepo(repoObj:any) {
+		let next = localStorage.getItem("next");
+		if (next === null) {
+			next = "one";
+			localStorage.setItem("next", next);
+		}
+
+		if (
+			(localStorage.getItem("one") &&
+				JSON.parse(localStorage.getItem("one") as string).id === repoObj.id) ||
+			(localStorage.getItem("two") &&
+				JSON.parse(localStorage.getItem("two") as string).id === repoObj.id) ||
+			(localStorage.getItem("three") &&
+				JSON.parse(localStorage.getItem("three") as string).id === repoObj.id)
+		) {
+			return;
+		}
+
+		switch (next) {
+			case "one":
+				localStorage.setItem(next, JSON.stringify(repoObj));
+				localStorage.setItem("next", "two");
+				break;
+			case "two":
+				localStorage.setItem(next, JSON.stringify(repoObj));
+				localStorage.setItem("next", "three");
+				break;
+			case "three":
+				localStorage.setItem(next, JSON.stringify(repoObj));
+				localStorage.setItem("next", "one");
+				break;
+		}
+	}
+
+	loadRepos() {
+		let one = localStorage.getItem("one");
+		let two = localStorage.getItem("two");
+		let three = localStorage.getItem("three");
+		this.cachedRepos = [];
+		if (one !== null) {
+			this.cachedRepos.push(JSON.parse(one));
+		}
+		if (two !== null) {
+			this.cachedRepos.push(JSON.parse(two));
+		}
+		if (three !== null) {
+			this.cachedRepos.push(JSON.parse(three));
+		}
+	}
+
+	loadClickedRepo() {
+		this.search();
+	}
 }

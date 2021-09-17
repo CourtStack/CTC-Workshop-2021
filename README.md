@@ -8,4 +8,4 @@ This project was generated with [Angular CLI](https://github.com/angular/angular
 
 Run `ng serve` for a dev server. Navigate to `http://localhost:4200/`.
 
-Run `ng build` to build the project. The build artifacts will be stored in the `docs` directory, which is required to be hosted as a [GitHub Page](https://courtstack.github.io/CTC-Workshop-2021/).
+Run `ng build --base-href CTC-Workshop-2021` to build the project. The build artifacts will be stored in the `docs` directory, which is required to be hosted as a [GitHub Page](https://courtstack.github.io/CTC-Workshop-2021/).
